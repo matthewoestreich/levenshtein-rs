@@ -83,46 +83,35 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
     let mut trace: Vec<(String, String, Option<String>)> = vec![];
     let mut n1 = s1.len();
     let mut n2 = s2.len();
+    let s1s: Vec<char> = s1.chars().collect();
+    let s2s: Vec<char> = s2.chars().collect();
+
     while n1 > 0 || n2 > 0 {
-        let s1_bytes = s1.as_bytes();
-        let s2_bytes = s2.as_bytes();
         let action = actions[n1][n2].clone();
 
         if action == ADD {
             n2 -= 1;
-            trace.push((
-                ADD.to_string(),
-                (s2_bytes[n2] as char).to_string(),
-                None
-            ));
+            trace.push((ADD.to_string(), s2s[n2].to_string(), None));
         } else if action == REMOVE {
             n1 -= 1;
-            trace.push((
-                REMOVE.to_string(),
-                (s1_bytes[n1] as char).to_string(),
-                None
-            ));
+            trace.push((REMOVE.to_string(), s1s[n1].to_string(), None));
         } else if action == IGNORE {
             n1 -= 1;
             n2 -= 1;
-            trace.push((
-                IGNORE.to_string(),
-                (s1_bytes[n1] as char).to_string(),
-                None
-            ));
+            trace.push((IGNORE.to_string(), s1s[n1].to_string(), None));
         } else if action == SUBSTITUTE {
             n1 -= 1;
             n2 -= 1;
             trace.push((
                 SUBSTITUTE.to_string(),
-                (s1_bytes[n1] as char).to_string(),
-                Some((s2_bytes[n2] as char).to_string()),
+                s1s[n1].to_string(),
+                Some(s2s[n2].to_string()),
             ));
         }
     }
+
     trace.reverse();
     println!("{trace:?}");
-
     return cache[n1][n2];
 }
 
