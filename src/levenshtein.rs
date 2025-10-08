@@ -39,15 +39,14 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
 
     for n1 in 1..s1.len() + 1 {
         for n2 in 1..s2.len() + 1 {
-            if let Some(s1c) = s1.chars().nth(n1 - 1) {
-                if let Some(s2c) = s2.chars().nth(n2 - 1) {
-                    if s1c == s2c {
-                        cache[n1][n2] = cache[n1 - 1][n2 - 1];
-                        actions[n1][n2] = IGNORE.to_string();
-                        trace_cache(&cache, &actions);
-                        continue;
-                    }
-                }
+            let s1c: Vec<char> = s1.chars().collect();
+            let s2c: Vec<char> = s2.chars().collect();
+
+            if s1c[n1 - 1] == s2c[n2 - 1] {
+                cache[n1][n2] = cache[n1 - 1][n2 - 1];
+                actions[n1][n2] = IGNORE.to_string();
+                trace_cache(&cache, &actions);
+                continue;
             }
 
             let remove = cache[n1 - 1][n2];
@@ -120,7 +119,7 @@ fn trace_cache(cache: &[Vec<i32>], actions: &[Vec<String>]) {
         for col in 0..cache[row].len() {
             let item = cache[row][col];
             let action = actions[row][col].clone();
-            print!("{:<6}", format!("{item} ({action})"));
+            print!("{:<8}", format!("{item} ({action})"));
         }
         println!();
     }
