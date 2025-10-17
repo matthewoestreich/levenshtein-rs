@@ -12,91 +12,37 @@ pub enum Action {
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Action::Add => write!(f, "A"),
-            Action::Ignore => write!(f, "I"),
-            Action::Remove => write!(f, "R"),
-            Action::Substitute => write!(f, "S"),
+            Action::Add => write!(f, "Add"),
+            Action::Ignore => write!(f, "Ignore"),
+            Action::Remove => write!(f, "Remove"),
+            Action::Substitute => write!(f, "Substitute"),
             Action::None => write!(f, "-"),
         }
     }
 }
 
-pub fn levenshtein(s1: String, s2: String) -> i32 {
-    let mut cache: Vec<Vec<i32>> = vec![vec![0; s2.len() + 1]; s1.len() + 1];
-    let mut actions: Vec<Vec<Action>> = vec![vec![Action::None; s2.len() + 1]; s1.len() + 1];
+pub struct LevenshteinResult {
+    pub distance: i32,
+    pub actions_taken: Vec<Vec<String>>,
+}
 
-    for row in &mut cache {
-        for value in row {
-            *value = 0;
+fn trace_cache(cache: &[Vec<i32>], actions: &[Vec<Action>]) -> String {
+    let mut print_str = String::new();
+
+    for row in 0..cache.len() {
+        for col in 0..cache[row].len() {
+            let item = cache[row][col];
+            let action = actions[row][col].clone();
+            print_str += &format!("{:<15} ", format!("{item} ({action})"));
         }
+        print_str += "\n";
     }
 
-    for row in &mut actions {
-        for value in row {
-            *value = Action::None
-        }
-    }
+    print_str += "\n";
+    print_str
+}
 
-    cache[0][0] = 0;
-    actions[0][0] = Action::Ignore;
-    trace_cache(&cache, &actions);
-
-    for n2 in 1..s2.len() + 1 {
-        let n1 = 0;
-        cache[n1][n2] = n2 as i32;
-        actions[n1][n2] = Action::Add;
-        trace_cache(&cache, &actions);
-    }
-
-    for n1 in 1..s1.len() + 1 {
-        let n2 = 0;
-        cache[n1][n2] = n1 as i32;
-        actions[n1][n2] = Action::Remove;
-        trace_cache(&cache, &actions);
-    }
-
-    for n1 in 1..s1.len() + 1 {
-        for n2 in 1..s2.len() + 1 {
-            let s1c: Vec<char> = s1.chars().collect();
-            let s2c: Vec<char> = s2.chars().collect();
-
-            if s1c[n1 - 1] == s2c[n2 - 1] {
-                cache[n1][n2] = cache[n1 - 1][n2 - 1];
-                actions[n1][n2] = Action::Ignore;
-                trace_cache(&cache, &actions);
-                continue;
-            }
-
-            let remove = cache[n1 - 1][n2];
-            let add = cache[n1][n2 - 1];
-            let subs = cache[n1 - 1][n2 - 1];
-
-            cache[n1][n2] = remove;
-            actions[n1][n2] = Action::Remove;
-
-            if cache[n1][n2] > add {
-                cache[n1][n2] = add;
-                actions[n1][n2] = Action::Add;
-            }
-
-            if cache[n1][n2] > subs {
-                cache[n1][n2] = subs;
-                actions[n1][n2] = Action::Substitute;
-            }
-
-            cache[n1][n2] += 1;
-
-            trace_cache(&cache, &actions);
-        }
-    }
-
-    //for row in cache {
-    //    println!("{row:?}");
-    //}
-    //for row in actions {
-    //    println!("{row:?}");
-    //}
-
+fn fmt_actions_taken(s1: &str, s2: &str, actions: &[Vec<Action>]) -> Vec<Vec<String>> {
     let mut trace: Vec<Vec<String>> = vec![];
     let mut n1 = s1.len();
     let mut n2 = s2.len();
@@ -132,18 +78,85 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
     }
 
     trace.reverse();
-    println!("{trace:?}");
-    return cache[n1][n2];
+    trace
 }
 
-fn trace_cache(cache: &[Vec<i32>], actions: &[Vec<Action>]) {
-    for row in 0..cache.len() {
-        for col in 0..cache[row].len() {
-            let item = cache[row][col];
-            let action = actions[row][col].clone();
-            print!("{:<8}", format!("{item} ({action})"));
+// The actual Levenshtein distance algo
+pub fn distance(s1: &str, s2: &str, print_trace: bool) -> LevenshteinResult {
+    let mut trace_str = String::new();
+    let mut cache: Vec<Vec<i32>> = vec![vec![0; s2.len() + 1]; s1.len() + 1];
+    let mut actions: Vec<Vec<Action>> = vec![vec![Action::None; s2.len() + 1]; s1.len() + 1];
+
+    for row in &mut cache {
+        for value in row {
+            *value = 0;
         }
-        println!();
     }
-    println!();
+
+    for row in &mut actions {
+        for value in row {
+            *value = Action::None
+        }
+    }
+
+    cache[0][0] = 0;
+    actions[0][0] = Action::Ignore;
+    trace_str += &trace_cache(&cache, &actions);
+
+    for n2 in 1..s2.len() + 1 {
+        let n1 = 0;
+        cache[n1][n2] = n2 as i32;
+        actions[n1][n2] = Action::Add;
+        trace_str += &trace_cache(&cache, &actions);
+    }
+
+    for n1 in 1..s1.len() + 1 {
+        let n2 = 0;
+        cache[n1][n2] = n1 as i32;
+        actions[n1][n2] = Action::Remove;
+        trace_str += &trace_cache(&cache, &actions);
+    }
+
+    for n1 in 1..s1.len() + 1 {
+        for n2 in 1..s2.len() + 1 {
+            let s1c: Vec<char> = s1.chars().collect();
+            let s2c: Vec<char> = s2.chars().collect();
+
+            if s1c[n1 - 1] == s2c[n2 - 1] {
+                cache[n1][n2] = cache[n1 - 1][n2 - 1];
+                actions[n1][n2] = Action::Ignore;
+                trace_cache(&cache, &actions);
+                continue;
+            }
+
+            let remove = cache[n1 - 1][n2];
+            let add = cache[n1][n2 - 1];
+            let subs = cache[n1 - 1][n2 - 1];
+
+            cache[n1][n2] = remove;
+            actions[n1][n2] = Action::Remove;
+
+            if cache[n1][n2] > add {
+                cache[n1][n2] = add;
+                actions[n1][n2] = Action::Add;
+            }
+
+            if cache[n1][n2] > subs {
+                cache[n1][n2] = subs;
+                actions[n1][n2] = Action::Substitute;
+            }
+
+            cache[n1][n2] += 1;
+            trace_str += &trace_cache(&cache, &actions);
+        }
+    }
+
+    if print_trace {
+        print!("{trace_str}");
+    }
+
+    LevenshteinResult {
+        distance: cache[s1.len()][s2.len()],
+        actions_taken: fmt_actions_taken(s1, s2, &actions),
+    }
 }
