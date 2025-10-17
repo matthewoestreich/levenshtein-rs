@@ -125,7 +125,7 @@ pub fn distance(s1: &str, s2: &str, print_trace: bool) -> LevenshteinResult {
             if s1c[n1 - 1] == s2c[n2 - 1] {
                 cache[n1][n2] = cache[n1 - 1][n2 - 1];
                 actions[n1][n2] = Action::Ignore;
-                trace_cache(&cache, &actions);
+                trace_str += &trace_cache(&cache, &actions);
                 continue;
             }
 
