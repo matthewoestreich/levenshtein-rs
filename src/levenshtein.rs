@@ -1,11 +1,29 @@
-const IGNORE: &str = "I";
-const ADD: &str = "A";
-const REMOVE: &str = "R";
-const SUBSTITUTE: &str = "S";
+use std::fmt;
+
+#[derive(Clone)]
+pub enum Action {
+    Ignore,
+    Add,
+    Remove,
+    Substitute,
+    None,
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Action::Add => write!(f, "A"),
+            Action::Ignore => write!(f, "I"),
+            Action::Remove => write!(f, "R"),
+            Action::Substitute => write!(f, "S"),
+            Action::None => write!(f, "-"),
+        }
+    }
+}
 
 pub fn levenshtein(s1: String, s2: String) -> i32 {
     let mut cache: Vec<Vec<i32>> = vec![vec![0; s2.len() + 1]; s1.len() + 1];
-    let mut actions: Vec<Vec<String>> = vec![vec![String::new(); s2.len() + 1]; s1.len() + 1];
+    let mut actions: Vec<Vec<Action>> = vec![vec![Action::None; s2.len() + 1]; s1.len() + 1];
 
     for row in &mut cache {
         for value in row {
@@ -15,25 +33,25 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
 
     for row in &mut actions {
         for value in row {
-            *value = "-".to_string();
+            *value = Action::None
         }
     }
 
     cache[0][0] = 0;
-    actions[0][0] = IGNORE.to_string();
+    actions[0][0] = Action::Ignore;
     trace_cache(&cache, &actions);
 
     for n2 in 1..s2.len() + 1 {
         let n1 = 0;
         cache[n1][n2] = n2 as i32;
-        actions[n1][n2] = ADD.to_string();
+        actions[n1][n2] = Action::Add;
         trace_cache(&cache, &actions);
     }
 
     for n1 in 1..s1.len() + 1 {
         let n2 = 0;
         cache[n1][n2] = n1 as i32;
-        actions[n1][n2] = REMOVE.to_string();
+        actions[n1][n2] = Action::Remove;
         trace_cache(&cache, &actions);
     }
 
@@ -44,7 +62,7 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
 
             if s1c[n1 - 1] == s2c[n2 - 1] {
                 cache[n1][n2] = cache[n1 - 1][n2 - 1];
-                actions[n1][n2] = IGNORE.to_string();
+                actions[n1][n2] = Action::Ignore;
                 trace_cache(&cache, &actions);
                 continue;
             }
@@ -54,16 +72,16 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
             let subs = cache[n1 - 1][n2 - 1];
 
             cache[n1][n2] = remove;
-            actions[n1][n2] = REMOVE.to_string();
+            actions[n1][n2] = Action::Remove;
 
             if cache[n1][n2] > add {
                 cache[n1][n2] = add;
-                actions[n1][n2] = ADD.to_string();
+                actions[n1][n2] = Action::Add;
             }
 
             if cache[n1][n2] > subs {
                 cache[n1][n2] = subs;
-                actions[n1][n2] = SUBSTITUTE.to_string();
+                actions[n1][n2] = Action::Substitute;
             }
 
             cache[n1][n2] += 1;
@@ -79,33 +97,37 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
     //    println!("{row:?}");
     //}
 
-    let mut trace: Vec<(String, String, Option<String>)> = vec![];
+    let mut trace: Vec<Vec<String>> = vec![];
     let mut n1 = s1.len();
     let mut n2 = s2.len();
     let s1c: Vec<char> = s1.chars().collect();
     let s2c: Vec<char> = s2.chars().collect();
 
     while n1 > 0 || n2 > 0 {
-        let action = actions[n1][n2].clone();
-
-        if action == ADD {
-            n2 -= 1;
-            trace.push((ADD.to_string(), s2c[n2].to_string(), None));
-        } else if action == REMOVE {
-            n1 -= 1;
-            trace.push((REMOVE.to_string(), s1c[n1].to_string(), None));
-        } else if action == IGNORE {
-            n1 -= 1;
-            n2 -= 1;
-            trace.push((IGNORE.to_string(), s1c[n1].to_string(), None));
-        } else if action == SUBSTITUTE {
-            n1 -= 1;
-            n2 -= 1;
-            trace.push((
-                SUBSTITUTE.to_string(),
-                s1c[n1].to_string(),
-                Some(s2c[n2].to_string()),
-            ));
+        match actions[n1][n2] {
+            Action::Ignore => {
+                n1 -= 1;
+                n2 -= 1;
+                trace.push(vec![Action::Ignore.to_string(), s1c[n1].to_string()]);
+            }
+            Action::Add => {
+                n2 -= 1;
+                trace.push(vec![Action::Add.to_string(), s2c[n2].to_string()]);
+            }
+            Action::Remove => {
+                n1 -= 1;
+                trace.push(vec![Action::Remove.to_string(), s1c[n1].to_string()]);
+            }
+            Action::Substitute => {
+                n1 -= 1;
+                n2 -= 1;
+                trace.push(vec![
+                    Action::Substitute.to_string(),
+                    s1c[n1].to_string(),
+                    s2c[n2].to_string(),
+                ]);
+            }
+            Action::None => { /* No op */ }
         }
     }
 
@@ -114,7 +136,7 @@ pub fn levenshtein(s1: String, s2: String) -> i32 {
     return cache[n1][n2];
 }
 
-fn trace_cache(cache: &[Vec<i32>], actions: &[Vec<String>]) {
+fn trace_cache(cache: &[Vec<i32>], actions: &[Vec<Action>]) {
     for row in 0..cache.len() {
         for col in 0..cache[row].len() {
             let item = cache[row][col];
